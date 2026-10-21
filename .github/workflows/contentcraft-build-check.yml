@@ -1,0 +1,60 @@
+name: ContentCraft build verification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out test branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: ''
+
+      - name: Locate and extract source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARCHIVE="$(find . -maxdepth 3 -type f -iname '*contentcraft*.zip' -print -quit)"
+          if [ -z "$ARCHIVE" ]; then
+            echo "::error::Could not find a ContentCraft ZIP archive in the repository."
+            exit 1
+          fi
+          echo "Using source archive: $ARCHIVE"
+          mkdir -p "$RUNNER_TEMP/contentcraft-src"
+          unzip -q "$ARCHIVE" -d "$RUNNER_TEMP/contentcraft-src"
+          PACKAGE_JSON="$(find "$RUNNER_TEMP/contentcraft-src" -type f -name package.json -not -path '*/node_modules/*' -print -quit)"
+          if [ -z "$PACKAGE_JSON" ]; then
+            echo "::error::The archive does not contain package.json."
+            exit 1
+          fi
+          PROJECT_DIR="$(dirname "$PACKAGE_JSON")"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Project root: $PROJECT_DIR"
+          node -e "const p=require(process.argv[1]); console.log('Scripts:', JSON.stringify(p.scripts || {}))" "$PACKAGE_JSON"
+
+      - name: Install dependencies
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: npm install --no-audit --no-fund
+
+      - name: Run production build
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: npm run build
+
+      - name: Upload build output for inspection (no deployment)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contentcraft-production-build
+          path: ${{ env.PROJECT_DIR }}/dist/
+          if-no-files-found: error
+          retention-days: 7
