@@ -1,6 +1,11 @@
 name: ContentCraft build verification
 
 on:
+  push:
+    branches:
+      - test/contentcraft-build-check
+    paths:
+      - ".github/workflows/contentcraft-build-check.yml"
   workflow_dispatch:
 
 permissions:
