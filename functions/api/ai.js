@@ -1,6 +1,7 @@
 /**
  * ContentCraft Pages AI gateway.
  * Uses only an explicitly enabled Cloudflare Workers AI binding.
+ * Uses a model available on Workers Free; requests fail closed at free quota limits.
  * No Gemini or paid-provider fallback is used.
  */
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
@@ -68,7 +69,7 @@ export async function onRequestPost({ request, env }) {
     ? Math.min(1, Math.max(0, input.config.temperature)) : 0.7;
   const prompt = toPrompt(contents);
   try {
-    const output = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
+    const output = await env.AI.run("@cf/zai-org/glm-4.7-flash", {
       messages: [
         ...(systemInstruction ? [{ role: "system", content: systemInstruction }] : []),
         { role: "user", content: prompt },
@@ -78,7 +79,7 @@ export async function onRequestPost({ request, env }) {
     });
     const text = output?.response ?? output?.result?.response;
     if (typeof text === "string" && text.trim()) {
-      return json({ ok: true, provider: "cloudflare-workers-ai", model: "@cf/meta/llama-3.1-8b-instruct", text });
+      return json({ ok: true, provider: "cloudflare-workers-ai", model: "@cf/zai-org/glm-4.7-flash", text });
     }
     return json({ ok: false, code: "AI_EMPTY_OUTPUT" }, 502);
   } catch (error) {
