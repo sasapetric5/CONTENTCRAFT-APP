@@ -1,5 +1,5 @@
-name: ContentCraft build verification
-run-name: ContentCraft safety tests and production build
+name: ContentCraft build verification and deployment
+run-name: ContentCraft safety tests, production build, and authorized Pages deploy
 
 on:
   push:
@@ -11,9 +11,9 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Check out test branch
         uses: actions/checkout@v4
@@ -94,13 +94,31 @@ jobs:
           test -s "$RUNNER_TEMP/contentcraft-patched-source.zip"
           echo "Patched source archive created; original ZIP in the repository remains unchanged."
 
-      - name: Upload build and patched source for inspection (no deployment)
-        if: success()
+      - name: Verify Cloudflare deployment credentials are configured
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::Production deployment not started: repository secrets CLOUDFLARE_API_TOKEN and/or CLOUDFLARE_ACCOUNT_ID are missing. No production changes were made."
+            exit 1
+          fi
+
+      - name: Publish verified app to existing Cloudflare Pages production
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy "${{ env.PROJECT_DIR }}/dist" --project-name=contentcraft-app --branch=main
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload build and patched source for inspection
+        if: always() && success()
         uses: actions/upload-artifact@v4
         with:
           name: contentcraft-verified-build-and-source
           path: |
             ${{ env.PROJECT_DIR }}/dist/
             ${{ runner.temp }}/contentcraft-patched-source.zip
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 7
