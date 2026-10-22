@@ -1,4 +1,5 @@
 name: ContentCraft build verification
+run-name: ContentCraft safety tests and production build
 
 on:
   push:
