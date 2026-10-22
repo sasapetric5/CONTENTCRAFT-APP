@@ -84,11 +84,23 @@ jobs:
         working-directory: ${{ env.PROJECT_DIR }}
         run: npm run build
 
-      - name: Upload build output for inspection (no deployment)
+      - name: Package patched source archive
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          zip -qr "$RUNNER_TEMP/contentcraft-patched-source.zip" . -x 'node_modules/*' 'dist/*' '.git/*'
+          test -s "$RUNNER_TEMP/contentcraft-patched-source.zip"
+          echo "Patched source archive created; original ZIP in the repository remains unchanged."
+
+      - name: Upload build and patched source for inspection (no deployment)
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: contentcraft-production-build
-          path: ${{ env.PROJECT_DIR }}/dist/
+          name: contentcraft-verified-build-and-source
+          path: |
+            ${{ env.PROJECT_DIR }}/dist/
+            ${{ runner.temp }}/contentcraft-patched-source.zip
           if-no-files-found: error
           retention-days: 7
