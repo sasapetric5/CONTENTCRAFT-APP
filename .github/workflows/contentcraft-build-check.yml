@@ -49,6 +49,18 @@ jobs:
           echo "Project root: $PROJECT_DIR"
           node -e "const p=require(process.argv[1]); console.log('Scripts:', JSON.stringify(p.scripts || {}))" "$PACKAGE_JSON"
 
+      - name: Ensure global stylesheet exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -s "$PROJECT_DIR/index.css" ]; then
+            cp "$GITHUB_WORKSPACE/index.css" "$PROJECT_DIR/index.css"
+            echo "Added repository fallback index.css to extracted source archive."
+          else
+            echo "Source archive already contains index.css."
+          fi
+          test -s "$PROJECT_DIR/index.css"
+
       - name: Install dependencies
         working-directory: ${{ env.PROJECT_DIR }}
         run: npm install --no-audit --no-fund
