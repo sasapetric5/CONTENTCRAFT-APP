@@ -25,6 +25,9 @@ jobs:
           node-version: 22
           cache: ''
 
+      - name: Run AI gateway safety tests
+        run: node --test tests/ai-gateway.test.mjs
+
       - name: Locate and extract source archive
         shell: bash
         run: |
