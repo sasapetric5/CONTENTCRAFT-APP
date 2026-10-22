@@ -61,6 +61,21 @@ jobs:
           fi
           test -s "$PROJECT_DIR/index.css"
 
+      - name: Apply safe runtime patches to extracted archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$GITHUB_WORKSPACE/.github/patches/contentcraft/services/geminiService.ts" "$PROJECT_DIR/services/geminiService.ts"
+          cp "$GITHUB_WORKSPACE/.github/patches/contentcraft/services/firebase.ts" "$PROJECT_DIR/services/firebase.ts"
+          cp "$GITHUB_WORKSPACE/.github/patches/contentcraft/vite.config.ts" "$PROJECT_DIR/vite.config.ts"
+          if grep -R -nE "process\\.env\\.(API_KEY|GEMINI_API_KEY)|new GoogleGenAI" "$PROJECT_DIR" --include='*.ts' --include='*.tsx' --include='*.js' --exclude-dir=node_modules; then
+            echo "::error::Unsafe direct Gemini credential usage remains in browser source."
+            exit 1
+          fi
+          grep -q 'fetch("/api/ai"' "$PROJECT_DIR/services/geminiService.ts"
+          grep -q 'VITE_FIREBASE_API_KEY' "$PROJECT_DIR/services/firebase.ts"
+          echo "Applied patches; direct browser-side Gemini credentials check passed."
+
       - name: Install dependencies
         working-directory: ${{ env.PROJECT_DIR }}
         run: npm install --no-audit --no-fund
